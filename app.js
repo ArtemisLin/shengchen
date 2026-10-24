@@ -27,6 +27,10 @@
     return { day: s.slice(0, 10), hm: s.slice(11, 16) };
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // 暗号：去掉空格标点再比指纹（SHA-512 前 16 字节），「自由、勇敢、丰盛、智慧」也算对
+  const normCode = (s) => s.replace(/[\s，,、。.！!；;：:·]/g, '');
+  const codeOk = (s) => !C.signinCode || b64e(nacl.hash(new TextEncoder().encode(normCode(s))).subarray(0, 16)) === C.signinCode;
+  const codeHtml = (id) => C.signinCode ? '<div class="label">签到暗号 <small>谷雨老师课上会说</small></div><input class="in" id="' + id + '" maxlength="30" placeholder="听老师说的填" autocomplete="off">' : '';
 
   // ---------- 钥匙 ----------
   const hashKey = (location.hash.match(/k=([A-Za-z0-9_]+)/) || [])[1];
@@ -192,7 +196,7 @@
     $('mine').innerHTML = list.map((r, i) => {
       let state;
       if (r.signed === t.day) state = '<div class="state ok">已签到 ✓ 谷雨老师知道你来了' + (PREVIEW ? '（预览，没有真签）' : '') + '</div>';
-      else if (t.day > r.day && open) state = '<div class="acts"><button class="btn ok" data-sign="' + i + '">我到了，签到 ✓</button></div><div class="err" id="se' + i + '"></div>';
+      else if (t.day > r.day && open) state = codeHtml('code' + i) + '<div class="acts"><button class="btn ok" data-sign="' + i + '">我到了，签到 ✓</button></div><div class="err" id="se' + i + '"></div>';
       else if (t.day > r.day) state = '<div class="state">今天上午 <b>' + OPEN + '</b> 开始签到（北京时间），<br>到点这里会出现签到按钮。</div>';
       else state = '<div class="state">明天上午 <b>' + OPEN + '</b> 起（北京时间），再扫一次码或者点开这条链接，<b>点「签到」</b>。签了到的盘，谷雨老师才会在课上讲。</div>';
       return '<section class="win"><div class="bar"><span>已交给谷雨老师.exe</span><span class="btns"><i></i><i></i><i></i></span></div><div class="body">' +
@@ -229,7 +233,9 @@
   }
 
   async function signIn(i, b) {
-    const r = list[i]; b.disabled = true; b.textContent = '签到中……';
+    const r = list[i];
+    if (!codeOk(($('code' + i) || {}).value || '')) { $('se' + i).textContent = '暗号不对，再听一下谷雨老师说的。'; return; }
+    b.disabled = true; b.textContent = '签到中……';
     if (PREVIEW) { r.signed = bjNow().day; render(); return; }
     try {
       await api('/issues/' + r.n + '/comments', { body: '签到 ' + new Date().toISOString() });
@@ -255,6 +261,7 @@
   $('send').onclick = send;
 
   // ---------- 换了手机：按称呼＋生日签到 ----------
+  $('lCodeBox').innerHTML = codeHtml('lCode');
   $('toLost').onclick = () => { $('lost').classList.remove('hidden'); $('form').classList.add('hidden'); scrollTo(0, 0); };
   $('lBack').onclick = () => { $('lost').classList.add('hidden'); render(); scrollTo(0, 0); };
   $('lSend').onclick = async () => {
@@ -263,6 +270,7 @@
     if (!nick) { $('lErr').textContent = '写一下称呼。'; return; }
     if (!y || !m || !d) { $('lErr').textContent = '出生日期还没选完。'; return; }
     if (bjNow().hm < OPEN) { $('lErr').textContent = '签到上午 ' + OPEN + ' 才开始（北京时间），到点再点。'; return; }
+    if (!codeOk(($('lCode') || {}).value || '')) { $('lErr').textContent = '暗号不对，再听一下谷雨老师说的。'; return; }
     const b = $('lSend'); b.disabled = true; b.textContent = '签到中……';
     try {
       if (!PREVIEW) await api('/issues', { title: '签到', body: seal({ v: 1, type: 'checkin', nick, date: y + '-' + p2(m) + '-' + p2(d), at: new Date().toISOString() }) });

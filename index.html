@@ -175,6 +175,7 @@ textarea.in { height: 84px; padding: 10px 12px; line-height: 1.5; resize: none; 
         <select class="sel" id="lm" required></select>
         <select class="sel" id="ld" required></select>
       </div>
+      <div id="lCodeBox"></div>
       <div class="acts"><button class="btn ok" id="lSend">签到 ✓</button></div>
       <div class="err" id="lErr"></div>
       <button class="link soft" id="lBack">回去</button>
@@ -182,10 +183,11 @@ textarea.in { height: 84px; padding: 10px 12px; line-height: 1.5; resize: none; 
   </section>
 </main>
 
-<script src="config.js"></script>
-<script src="nacl-fast.min.js"></script>
-<script src="bazi-core.js"></script>
-<script src="regions.js"></script>
-<script src="app.js"></script>
+<!-- ?v= 由 上线.sh 换成当次版本号，免得微信拿缓存的旧脚本 -->
+<script src="config.js?v=fc1a620e"></script>
+<script src="nacl-fast.min.js?v=fc1a620e"></script>
+<script src="bazi-core.js?v=fc1a620e"></script>
+<script src="regions.js?v=fc1a620e"></script>
+<script src="app.js?v=fc1a620e"></script>
 </body>
 </html>
