@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>交八字 · 谷雨的八字课</title>
+<style>
+/* 画风跟几个鉴定所一套：粉色双线窗口、奶油底、像素字、四角星、浅色网格 */
+@font-face { font-family: 'Pixel'; src: url('ui/pixel.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Smiley'; src: url('ui/smiley.woff2') format('woff2'); font-display: swap; }
+:root {
+  --bg: #fdf5f8;
+  --grid: #f5dde7;
+  --line: #e98fb0;
+  --rose: #e2007a;
+  --rose-soft: #ffc6dc;
+  --bar: #fcd9e5;
+  --cream: #fff3df;
+  --cream2: #fffaf2;
+  --purple: #4b3fd6;
+  --ink: #211d36;
+  --soft: #5b5670;
+  --mute: #a59fb5;
+  --ok: #1e8e47;
+  --sans: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --pixel: 'Pixel', var(--sans);
+  --smiley: 'Smiley', var(--sans);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { color: var(--ink); font-family: var(--sans); overflow-x: hidden; }
+body {
+  min-height: 100vh; padding: 26px 16px 40px;
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.hidden { display: none !important; }
+.deco { position: fixed; pointer-events: none; z-index: 0; }
+main { max-width: 480px; margin: 0 auto; }
+
+/* ---------- 窗口 ---------- */
+.win { position: relative; z-index: 1; background: var(--cream); border: 2.5px solid var(--line); border-radius: 16px; box-shadow: 0 0 0 4px var(--cream2), 0 0 0 6px var(--line), 0 14px 34px rgba(226, 0, 122, .10); }
+.win + .win { margin-top: 26px; }
+.win > .bar { display: flex; align-items: center; justify-content: space-between; height: 42px; padding: 0 14px; background: var(--bar); border-bottom: 2.5px solid var(--line); border-radius: 13px 13px 0 0; font-family: var(--pixel); font-size: 18px; color: var(--rose); }
+.win > .bar .btns { display: flex; gap: 6px; }
+.win > .bar .btns i { width: 18px; height: 18px; border: 2px solid var(--line); border-radius: 4px; background: var(--cream2); }
+.win > .body { padding: 22px 22px 24px; }
+
+.title { font-family: var(--smiley); font-size: 46px; line-height: 1.1; color: var(--rose); text-align: center; text-shadow: 3px 3px 0 var(--rose-soft); letter-spacing: 2px; margin-top: 4px; }
+.sub { text-align: center; color: var(--soft); font-size: 16px; line-height: 1.6; margin-top: 10px; }
+.ask { text-align: center; font-family: var(--pixel); font-size: 14px; color: var(--purple); margin-top: 8px; line-height: 1.6; }
+
+.label { font-family: var(--pixel); font-size: 16px; color: var(--rose); letter-spacing: 1px; margin: 20px 0 8px; display: flex; align-items: center; gap: 6px; }
+.label::before { content: '✦'; font-size: 14px; }
+.label small { font-family: var(--sans); font-size: 13px; color: var(--mute); letter-spacing: 0; }
+.tip { color: var(--soft); font-size: 13px; line-height: 1.55; margin-top: 6px; }
+
+.in, .sel { display: block; width: 100%; height: 48px; border: 2px solid var(--line); border-radius: 12px; background: var(--cream2); padding: 0 12px; font-family: var(--sans); font-size: 17px; color: var(--ink); outline: none; -webkit-appearance: none; appearance: none; }
+.sel { padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, var(--line) 50%), linear-gradient(135deg, var(--line) 50%, transparent 50%); background-position: calc(100% - 15px) 21px, calc(100% - 10px) 21px; background-size: 5px 5px; background-repeat: no-repeat; }
+.sel:invalid, .sel.ph { color: var(--mute); }
+.in::placeholder { color: #b3aec2; }
+.in:focus, .sel:focus { border-color: var(--rose); box-shadow: 0 0 0 3px var(--rose-soft); }
+.sel:disabled { opacity: .45; }
+textarea.in { height: 84px; padding: 10px 12px; line-height: 1.5; resize: none; }
+.row { display: grid; gap: 8px; }
+.row.r3 { grid-template-columns: 1.35fr 1fr 1fr; }
+.row.r2 { grid-template-columns: 1.4fr 1fr; }
+.row + .row { margin-top: 8px; }
+.chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 15px; color: var(--soft); cursor: pointer; }
+.chk input { width: 20px; height: 20px; accent-color: var(--rose); }
+
+/* ---------- 八字预览 ---------- */
+.pillars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; text-align: center; }
+.pillars .pos { font-family: var(--pixel); font-size: 14px; color: var(--soft); margin-bottom: 5px; }
+.pillars .gz { border: 2px solid var(--line); border-radius: 10px; background: #fff; padding: 6px 0 4px; font-family: var(--smiley); font-size: 30px; line-height: 1.12; }
+.pillars .gz.ph { color: var(--mute); font-family: var(--pixel); font-size: 18px; line-height: 2.5; background: var(--cream2); }
+.solar { color: var(--soft); font-size: 13px; margin-top: 8px; text-align: center; }
+
+/* ---------- 按钮 ---------- */
+.acts { margin-top: 24px; }
+.btn { display: block; width: 100%; font-family: var(--pixel); font-size: 21px; padding: 13px 0; border-radius: 26px; border: 2.5px solid var(--rose); cursor: pointer; background: var(--rose); color: #fff; letter-spacing: 1px; text-align: center; box-shadow: 0 4px 0 #b30062; }
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b30062; }
+.btn:disabled { opacity: .55; }
+.btn.ok { background: var(--ok); border-color: var(--ok); box-shadow: 0 4px 0 #136630; }
+.link { display: block; margin: 16px auto 0; font-family: var(--pixel); font-size: 14px; border: 0; background: none; color: var(--rose); cursor: pointer; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; }
+.link.soft { color: var(--mute); }
+.err { color: var(--rose); font-weight: 700; font-size: 15px; line-height: 1.5; margin-top: 12px; text-align: center; }
+.err:empty { display: none; }
+
+/* ---------- 交好了 ---------- */
+.who { font-family: var(--smiley); font-size: 34px; color: var(--ink); text-align: center; }
+.when { text-align: center; color: var(--soft); font-size: 14px; line-height: 1.6; margin: 4px 0 14px; }
+.state { margin-top: 18px; border: 2px dashed var(--line); border-radius: 12px; padding: 12px 14px; background: var(--cream2); color: var(--soft); font-size: 15px; line-height: 1.65; text-align: center; }
+.state b { color: var(--rose); }
+.state.ok { border-style: solid; border-color: var(--ok); color: var(--ok); font-family: var(--pixel); font-size: 18px; }
+.stamp { font-family: var(--pixel); font-size: 15px; color: var(--ok); text-align: center; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<img class="deco" src="ui/star-y.png" alt="" style="left:2%;top:110px;width:44px">
+<img class="deco" src="ui/star-w.png" alt="" style="right:3%;top:56px;width:36px">
+<img class="deco" src="ui/star-w.png" alt="" style="right:6%;bottom:110px;width:28px">
+
+<main>
+  <!-- 没带钥匙打开 -->
+  <section class="win hidden" id="noKey">
+    <div class="bar"><span>交八字.exe</span><span class="btns"><i></i><i></i><i></i></span></div>
+    <div class="body">
+      <div class="title">交八字</div>
+      <p class="sub">这个页面要用谷雨老师发在群里的链接打开。<br>回群里点那条链接就好。</p>
+    </div>
+  </section>
+
+  <!-- 交好了：每张一份 -->
+  <div id="mine"></div>
+
+  <!-- 填表 -->
+  <section class="win hidden" id="form">
+    <div class="bar"><span>交八字.exe</span><span class="btns"><i></i><i></i><i></i></span></div>
+    <div class="body">
+      <div class="title">交八字</div>
+      <p class="sub">今天交上来，谷雨老师晚上看盘、写批注，<br>明天课上讲。</p>
+      <p class="ask">你填的内容会先加密再交，只有谷雨老师能打开</p>
+
+      <div class="label">怎么称呼你</div>
+      <input class="in" id="nick" maxlength="20" placeholder="课上就用这个名字叫你" autocomplete="nickname">
+
+      <div class="label">出生日期 <small>公历</small></div>
+      <div class="row r3">
+        <select class="sel" id="y" required></select>
+        <select class="sel" id="m" required></select>
+        <select class="sel" id="d" required></select>
+      </div>
+
+      <div class="label">出生时间</div>
+      <div class="row r2">
+        <select class="sel" id="hh" required></select>
+        <select class="sel" id="mi"></select>
+      </div>
+      <label class="chk"><input type="checkbox" id="unk"> 不记得几点出生</label>
+
+      <div class="label">出生地 <small>选填，排盘按当地太阳时，更准</small></div>
+      <select class="sel" id="prov"></select>
+      <input class="in hidden" id="abroad" maxlength="30" placeholder="哪个城市？比如：香港、东京" style="margin-top:8px">
+      <div class="row r2" id="cityRow" style="margin-top:8px">
+        <select class="sel" id="city"></select>
+        <select class="sel" id="area"></select>
+      </div>
+
+      <div class="label">想问谷雨老师什么 <small>选填</small></div>
+      <textarea class="in" id="q" maxlength="200" placeholder="一句话就行，比如：今年适合换工作吗"></textarea>
+
+      <div class="label">你的八字</div>
+      <div class="pillars" id="pv"></div>
+      <div class="solar" id="pvNote"></div>
+
+      <div class="acts"><button class="btn" id="send">交给谷雨老师 ▶</button></div>
+      <div class="err" id="err"></div>
+      <button class="link soft hidden" id="cancelEdit">不改了，回去</button>
+      <button class="link" id="toLost">之前交过，但这台手机上找不到？点这里签到</button>
+    </div>
+  </section>
+
+  <!-- 换了手机签到 -->
+  <section class="win hidden" id="lost">
+    <div class="bar"><span>签到.exe</span><span class="btns"><i></i><i></i><i></i></span></div>
+    <div class="body">
+      <p class="sub" style="margin-top:0">填交八字时用的称呼和生日，<br>谷雨老师那边就能对上你的盘。</p>
+      <div class="label">称呼</div>
+      <input class="in" id="lNick" maxlength="20" placeholder="跟交八字时写的一样">
+      <div class="label">出生日期 <small>公历</small></div>
+      <div class="row r3">
+        <select class="sel" id="ly" required></select>
+        <select class="sel" id="lm" required></select>
+        <select class="sel" id="ld" required></select>
+      </div>
+      <div class="acts"><button class="btn ok" id="lSend">签到 ✓</button></div>
+      <div class="err" id="lErr"></div>
+      <button class="link soft" id="lBack">回去</button>
+    </div>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script src="nacl-fast.min.js"></script>
+<script src="bazi-core.js"></script>
+<script src="regions.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
