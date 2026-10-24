@@ -18,9 +18,14 @@
   };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const p2 = (n) => String(n).padStart(2, '0');
-  const ymd = (t) => t.getFullYear() + '-' + p2(t.getMonth() + 1) + '-' + p2(t.getDate());
-  // ?d=2026-10-25 只给测试用：假装今天是那天
-  const today = () => { const q = new URLSearchParams(location.search).get('d'); return /^\d{4}-\d{2}-\d{2}$/.test(q || '') ? q : ymd(new Date()); };
+  // 签到一律按北京时间，不看手机设的时区。?t=2026-10-25T10:05 是给谷雨看的预览：假装那个北京时间，点签到也不会真交
+  const OPEN = C.signinOpen || '10:00';
+  const PREVIEW = (new URLSearchParams(location.search).get('t') || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/);
+  function bjNow() {
+    if (PREVIEW) return { day: PREVIEW[1], hm: PREVIEW[2] };
+    const s = new Date(Date.now() + 8 * 3600e3).toISOString();
+    return { day: s.slice(0, 10), hm: s.slice(11, 16) };
+  }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // ---------- 钥匙 ----------
@@ -179,13 +184,17 @@
     const [y, m, d] = r.date.split('-').map(Number);
     return y + ' 年 ' + m + ' 月 ' + d + ' 日 · ' + (r.unk ? '时辰不详' : r.time) + (r.place ? '<br>' + esc(r.place) : '');
   }
+  let shown = '';
+  const phase = () => { const t = bjNow(); return t.day + (t.hm >= OPEN ? '+' : '-'); };
   function render() {
-    const t = today();
+    const t = bjNow(), open = t.hm >= OPEN;
+    shown = phase();
     $('mine').innerHTML = list.map((r, i) => {
       let state;
-      if (r.signed === t) state = '<div class="state ok">已签到 ✓ 谷雨老师知道你来了</div>';
-      else if (t > r.day) state = '<div class="acts"><button class="btn ok" data-sign="' + i + '">我到了，签到 ✓</button></div><div class="err" id="se' + i + '"></div>';
-      else state = '<div class="state">明天上课时，回微信群里重新点开这条链接，<b>点「签到」</b>，谷雨老师就知道要讲你的盘。</div>';
+      if (r.signed === t.day) state = '<div class="state ok">已签到 ✓ 谷雨老师知道你来了' + (PREVIEW ? '（预览，没有真签）' : '') + '</div>';
+      else if (t.day > r.day && open) state = '<div class="acts"><button class="btn ok" data-sign="' + i + '">我到了，签到 ✓</button></div><div class="err" id="se' + i + '"></div>';
+      else if (t.day > r.day) state = '<div class="state">今天上午 <b>' + OPEN + '</b> 开始签到（北京时间），<br>到点这里会出现签到按钮。</div>';
+      else state = '<div class="state">明天上午 <b>' + OPEN + '</b> 起（北京时间），再扫一次码或者点开这条链接，<b>点「签到」</b>。签了到的盘，谷雨老师才会在课上讲。</div>';
       return '<section class="win"><div class="bar"><span>已交给谷雨老师.exe</span><span class="btns"><i></i><i></i><i></i></span></div><div class="body">' +
         '<div class="stamp">✓ 交好了</div><div class="who">' + esc(r.nick) + '</div><div class="when">' + whenText(r) + '</div>' +
         '<div class="pillars">' + pillarsHtml(r.pillars) + '</div>' + state +
@@ -211,7 +220,7 @@
       const body = { v: 1, type: 'sub', nick: f.nick, date: f.date, time: f.time, unk: f.unk, place: f.place, lon: f.lon, q: f.q,
         pillars: f.pillars.join(' ').trim(), dst: f.dst, at: new Date().toISOString(), replaces: editing ? editing.n : null };
       const iss = await api('/issues', { title: '生辰', body: seal(body) });
-      const rec = { n: iss.number, nick: f.nick, date: f.date, time: f.time, unk: f.unk, place: f.place, pk: f.pk, q: f.q, pillars: f.pillars, day: today(), signed: null };
+      const rec = { n: iss.number, nick: f.nick, date: f.date, time: f.time, unk: f.unk, place: f.place, pk: f.pk, q: f.q, pillars: f.pillars, day: bjNow().day, signed: null };
       if (editing) { rec.signed = editing.signed; list = list.filter((r) => r.n !== editing.n); }
       list.push(rec); save(); editing = null; render(); scrollTo(0, 0);
     } catch (e) {
@@ -221,9 +230,10 @@
 
   async function signIn(i, b) {
     const r = list[i]; b.disabled = true; b.textContent = '签到中……';
+    if (PREVIEW) { r.signed = bjNow().day; render(); return; }
     try {
       await api('/issues/' + r.n + '/comments', { body: '签到 ' + new Date().toISOString() });
-      r.signed = today(); save(); render();
+      r.signed = bjNow().day; save(); render();
     } catch (e) { b.disabled = false; b.textContent = '我到了，签到 ✓'; $('se' + i).textContent = errText(e); }
   }
 
@@ -252,9 +262,10 @@
     $('lErr').textContent = '';
     if (!nick) { $('lErr').textContent = '写一下称呼。'; return; }
     if (!y || !m || !d) { $('lErr').textContent = '出生日期还没选完。'; return; }
+    if (bjNow().hm < OPEN) { $('lErr').textContent = '签到上午 ' + OPEN + ' 才开始（北京时间），到点再点。'; return; }
     const b = $('lSend'); b.disabled = true; b.textContent = '签到中……';
     try {
-      await api('/issues', { title: '签到', body: seal({ v: 1, type: 'checkin', nick, date: y + '-' + p2(m) + '-' + p2(d), at: new Date().toISOString() }) });
+      if (!PREVIEW) await api('/issues', { title: '签到', body: seal({ v: 1, type: 'checkin', nick, date: y + '-' + p2(m) + '-' + p2(d), at: new Date().toISOString() }) });
       b.classList.add('hidden');
       $('lErr').innerHTML = '<div class="state ok">签到好了 ✓ 谷雨老师那边会对上你的盘</div>';
     } catch (e) { b.disabled = false; b.textContent = '签到 ✓'; $('lErr').textContent = errText(e); }
@@ -263,4 +274,6 @@
   // ---------- 开场 ----------
   if (!token) { $('noKey').classList.remove('hidden'); return; }
   preview(); render();
+  // 页面一直开着的：到了 10 点、过了零点，自己换成签到按钮
+  setInterval(() => { if (phase() !== shown && !editing) render(); }, 20000);
 })();
